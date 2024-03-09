@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
+import androidx.core.text.isDigitsOnly
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -35,25 +36,33 @@ class MainActivity : ComponentActivity() {
 
         submitButton.setOnClickListener {
             val matrikelNumber = matrikelNumberEditText.text.toString()
-            CoroutineScope(Dispatchers.IO).launch {
-                sendTcpRequest(matrikelNumber)
+            if (isValidMatrikelnumber(matrikelNumber)) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    sendTcpRequest(matrikelNumber)
+                }
+            } else {
+                serverResponseTextView.text = getString(R.string.enter_matrikel_number)
             }
         }
 
         calculateButton.setOnClickListener {
-            val matrikelNumber: Int = matrikelNumberEditText.text.toString().toInt()
-            val result = sortMartikelNumber(matrikelNumber)
-            serverResponseTextView.text = result
+            val matrikelNumber: String = matrikelNumberEditText.text.toString()
+            if (isValidMatrikelnumber(matrikelNumber)) {
+                val result = sortMatrikelNumber(matrikelNumber)
+                serverResponseTextView.text = result
+            } else {
+                serverResponseTextView.text = getString(R.string.enter_matrikel_number)
+            }
         }
     }
 
-    private suspend fun sendTcpRequest(matriculationNumber: String) {
+    private suspend fun sendTcpRequest(matrikelNumber: String) {
         try {
             val socket = Socket(InetAddress.getByName(serverAddress), serverPort)
             val out = PrintWriter(socket.getOutputStream(), true)
             val input = BufferedReader(InputStreamReader(socket.getInputStream()))
 
-            out.println(matriculationNumber)
+            out.println(matrikelNumber)
             val response = input.readLine()
 
             withContext(Dispatchers.Main) {
@@ -69,9 +78,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    fun sortMartikelNumber(number: Int): String {
+    private fun sortMatrikelNumber(number: String): String {
         // Convert to a list of its digits
-        val digits = number.toString().map(Character::getNumericValue)
+        val digits = number.map(Character::getNumericValue)
 
         // Separate even and odd digits, then sort them
         val evenDigitsSorted = digits.filter { it % 2 == 0 }.sorted()
@@ -80,5 +89,15 @@ class MainActivity : ComponentActivity() {
         // Combine sorted digits back into a single number
         val sortedDigits = evenDigitsSorted + oddDigitsSorted
         return sortedDigits.joinToString("")
+    }
+
+    private fun isValidMatrikelnumber(matrikelNumber: String): Boolean {
+        // Check if the length is 8
+        if (matrikelNumber.length != 8) return false
+
+        // Check that all characters are digits
+        if (!matrikelNumber.isDigitsOnly()) return false
+
+        return true
     }
 }

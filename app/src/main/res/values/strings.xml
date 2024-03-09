@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">SE2Einzelbeispiel</string>
+    <string name="enter_matrikel_number">Please enter a valid matrikel number (TJJNNNNN)</string>
 </resources>
