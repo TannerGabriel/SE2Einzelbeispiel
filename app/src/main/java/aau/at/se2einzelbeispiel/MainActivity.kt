@@ -10,10 +10,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
-import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.Socket
 
 class MainActivity : ComponentActivity() {
@@ -57,24 +58,35 @@ class MainActivity : ComponentActivity() {
     }
 
     private suspend fun sendTcpRequest(matrikelNumber: String) {
+        setUILoading(true);
         try {
-            val socket = Socket(InetAddress.getByName(serverAddress), serverPort)
-            val out = PrintWriter(socket.getOutputStream(), true)
-            val input = BufferedReader(InputStreamReader(socket.getInputStream()))
+            val result = withTimeoutOrNull(10000) {
+                val socket: Socket = Socket()
+                try {
+                    socket.connect(InetSocketAddress(serverAddress, serverPort), 10000)
+                    val out = PrintWriter(socket.getOutputStream(), true)
+                    val input = BufferedReader(InputStreamReader(socket.getInputStream()))
 
-            out.println(matrikelNumber)
-            val response = input.readLine()
+                    out.println(matrikelNumber)
+                    val response = input.readLine()
 
-            withContext(Dispatchers.Main) {
-                serverResponseTextView.text = response
+                    // Return response
+                    response
+                } finally {
+                    socket.close()
+                }
             }
 
-            socket.close()
+            withContext(Dispatchers.Main) {
+                serverResponseTextView.text = result ?: "Connection timeout: Server did not respond in time."
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             withContext(Dispatchers.Main) {
                 serverResponseTextView.text = "Error: ${e.message}"
             }
+        } finally {
+            setUILoading(false);
         }
     }
 
@@ -99,5 +111,15 @@ class MainActivity : ComponentActivity() {
         if (!matrikelNumber.isDigitsOnly()) return false
 
         return true
+    }
+
+    private fun setUILoading(isLoading: Boolean) {
+        CoroutineScope(Dispatchers.Main).launch {
+            submitButton.isEnabled = !isLoading
+            calculateButton.isEnabled = !isLoading
+            if (isLoading) {
+                serverResponseTextView.text = "Loading..."
+            }
+        }
     }
 }
